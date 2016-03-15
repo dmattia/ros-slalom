@@ -1,12 +1,11 @@
 /************************************************************
- * Name: blobs_test.cpp
+ * Name: robot_slalom.cpp
  * Authors: David Mattia, Gina Gilmartin, Bridge Harrington,
 			Daniel Huang
  * Date: 02/14/2015
  *
- * Description: 
- *				 
- *		
+ * Description: This program makes a robot slalom through
+ * a series of cones and stop when it sees a large blue blob
  ***********************************************************/
 #include <kobuki_msgs/BumperEvent.h> 
 #include <geometry_msgs/Twist.h>
@@ -30,6 +29,8 @@ struct blob_color {
 };
 
 // A vector that can add weighted vectors with linear and rotational values
+// Vector addition divides by the total weight so that the vectors stay
+// relatively small.
 class MotionVector {
 public:
 	// Default constructor. Set linear speed to @linear
@@ -52,12 +53,15 @@ public:
 		twist.angular.z = ((weight * twist.angular.z) + (w * angular)) / (weight + w);
 		weight += w;
 	}
+	// assignment operator. works by value
 	MotionVector operator=(const MotionVector &mv) {
 		twist.linear.x = mv.twist.linear.x;
 		twist.angular.z = mv.twist.angular.z;
 		weight = mv.weight;
 		return *this;
 	}
+	// Adds this vector to another.  Returns the result of the addition
+	// without affecting *this.
 	MotionVector operator+(const MotionVector &mv) {
 		MotionVector toReturn;
 		if (weight + mv.weight) {
@@ -67,6 +71,7 @@ public:
 		}
 		return toReturn;
 	}
+	// Adds this vector to another, stores the result in *this, and returns the sum
 	MotionVector operator+=(const MotionVector &mv) {
 		*this = *this + mv;	
 		return *this;
@@ -109,7 +114,9 @@ bool goLeft = true; // Robot goes left around a cone if true, right if false
  * Returns: nothing
  * 
  * Description: 
- * 
+ * Finds the closest point to the robot. Activates object avoidance
+ * mode if an object is close.  The most important thing for the robot
+ * to do is avoid obstacles, so this vector carries the heaviest weight.
  **********************************************************/
 void pclCallback(const PointCloud::ConstPtr& cloud)
 {
@@ -126,6 +133,8 @@ void pclCallback(const PointCloud::ConstPtr& cloud)
 	}
 	//ROS_INFO("Minimum z is: %.3f", min_z);
 	if (min_z < 0.65) {
+		// Change the direction to go around a cone when the robot goes into
+		// object avoidance mode.
 		if(!inAvoidance && (cycleNumber - lastCycleNumberChanged > 20)) {
 			goLeft = !goLeft;
 			lastCycleNumberChanged = cycleNumber;
@@ -163,14 +172,18 @@ void blobsCallBack (const cmvision::Blobs& blobsIn)
 	cmvision::Blob largest_blob;
 	unsigned int max_blob_size_seen = 0;
 	for(int i = 0; i < blobsIn.blob_count; ++i) {
+		// Update @largest_blob with the largest orange blob seen currently
 		if (blobsIn.blobs[i].red == ORANGE && blobsIn.blobs[i].area > max_blob_size_seen) {
 			largest_blob = blobsIn.blobs[i];
 			max_blob_size_seen = blobsIn.blobs[i].x;
 		}
+		// Signal to stop the program if a large blue blob is seen
 		if (blobsIn.blobs[i].red == BLUE && blobsIn.blobs[i].area > 30000) {
 			shouldFinish = true;
 		}
 	}
+	// Set a vector @coneVector to go towards the side of the next cone
+	// based upon the largest orange blob found above
 	if(blobsIn.blob_count) {
 		float angularDirection = 0.0;
 
@@ -212,11 +225,13 @@ int main(int argc, char **argv)
 	// Set the loop frequency in Hz.
 	ros::Rate loop_rate(10);
 
-	MotionVector mv;
-	endpointVector.updateVector(0.2, 0.0, 1);
+	MotionVector mv; // The composite vector
+	endpointVector.updateVector(0.2, 0.0, 1); // Have one vector that always points forward to keep progress going
 
 	while(!shouldFinish && ros::ok())
 	{
+		// Add up all of the vectors together for a combination vector
+		// that uses parts of each individual vector.
 		mv = endpointVector + coneVector + avoidanceVector;
 		//mv.pretty_print();
 

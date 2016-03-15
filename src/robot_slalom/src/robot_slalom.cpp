@@ -134,7 +134,7 @@ void pclCallback(const PointCloud::ConstPtr& cloud)
 		inAvoidance = true;
 
 		// There is a close object. Update avoidanceVector
-		float linearSpeed = min_z - 0.5;
+		float linearSpeed = min_z - 0.4;
 		float angularDirection = 1.0 - min_z;
 		unsigned int weight = 1000;
 		if (closestPoint.x < 0) {
@@ -155,8 +155,8 @@ void pclCallback(const PointCloud::ConstPtr& cloud)
  ***********************************************************/
 void blobsCallBack (const cmvision::Blobs& blobsIn)
 {
-	unsigned int centerAround = 200; // Value in x range to center the robot onto (0-600)
-	if(goLeft) centerAround = 400;
+	unsigned int centerAround = 175; // Value in x range to center the robot onto (0-600)
+	if(goLeft) centerAround = 425;
 
 	coneVector.reset();
 	// Find the largest blob
@@ -167,7 +167,7 @@ void blobsCallBack (const cmvision::Blobs& blobsIn)
 			largest_blob = blobsIn.blobs[i];
 			max_blob_size_seen = blobsIn.blobs[i].x;
 		}
-		if (blobsIn.blobs[i].red == BLUE && blobsIn.blobs[i].area > 20000) {
+		if (blobsIn.blobs[i].red == BLUE && blobsIn.blobs[i].area > 30000) {
 			shouldFinish = true;
 		}
 	}
@@ -175,11 +175,11 @@ void blobsCallBack (const cmvision::Blobs& blobsIn)
 		float angularDirection = 0.0;
 
 		if (largest_blob.x < centerAround + 10) {
-			angularDirection = 0.9;
+			angularDirection = 0.7;
 		} else if (largest_blob.x > centerAround - 10) {
-			angularDirection = -0.9;
+			angularDirection = -0.7;
 		}
-		coneVector.updateVector(0.6, angularDirection, 3);
+		coneVector.updateVector(0.4, angularDirection, 3);
 	}
 }
  
@@ -213,7 +213,7 @@ int main(int argc, char **argv)
 	ros::Rate loop_rate(10);
 
 	MotionVector mv;
-	endpointVector.updateVector(0.3, 0.0, 1);
+	endpointVector.updateVector(0.2, 0.0, 1);
 
 	while(!shouldFinish && ros::ok())
 	{
